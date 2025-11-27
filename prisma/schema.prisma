@@ -1,0 +1,56 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String?
+  password  String
+  role      String   @default("USER")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  tickets   Ticket[]
+  actions   AuditLog[]
+}
+
+model Ticket {
+  id              String   @id @default(uuid())
+  internalId      String?
+  externalId      String
+  origin          String
+  title           String
+  description     String?
+  status          String   @default("OPEN")
+  responsibility  String
+  systemName      String
+  externalUrl     String?
+  
+  createdBy       User     @relation(fields: [userId], references: [id])
+  userId          String
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  auditLogs       AuditLog[]
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  action      String
+  details     String
+  
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  
+  ticket      Ticket?  @relation(fields: [ticketId], references: [id])
+  ticketId    String?
+
+  timestamp   DateTime @default(now())
+}
