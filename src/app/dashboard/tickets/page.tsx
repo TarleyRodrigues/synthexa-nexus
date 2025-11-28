@@ -1,29 +1,37 @@
 import Link from 'next/link';
 import { Plus, ExternalLink } from 'lucide-react';
-import { fetchTickets } from '../../../lib/data'; // Importando a função de dados
-import { format } from 'date-fns'; // Biblioteca de data que instalamos
+import { fetchTickets } from '../../../lib/data'; // Caminho relativo para src/lib/data.ts
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import CheckAlertsButton from './check-button'; // Importando o botão que criamos
 
 export default async function TicketsPage() {
   const tickets = await fetchTickets();
 
   return (
     <div className="w-full">
+      {/* Cabeçalho da Página */}
       <div className="flex w-full items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-800">Tickets de Suporte</h1>
-        <Link
-          href="/dashboard/tickets/create"
-          className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500"
-        >
-          <Plus className="h-4 w-4" />
-          <span className="hidden md:block">Novo Ticket</span>
-        </Link>
+        
+        {/* Área de Ações (Botão de Alerta + Novo Ticket) */}
+        <div className="flex items-center gap-2">
+          <CheckAlertsButton />
+          
+          <Link
+            href="/dashboard/tickets/create"
+            className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-500"
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden md:block">Novo Ticket</span>
+          </Link>
+        </div>
       </div>
 
+      {/* Tabela de Listagem */}
       <div className="mt-6 flow-root">
         <div className="inline-block min-w-full align-middle">
           <div className="rounded-lg bg-white p-2 md:pt-0 shadow-sm border border-gray-200">
-            {/* Tabela Responsiva */}
             <table className="min-w-full text-gray-900">
               <thead className="rounded-lg text-left text-sm font-normal">
                 <tr>
@@ -87,8 +95,8 @@ export default async function TicketsPage() {
                                 <ExternalLink className="w-5 h-5" />
                             </a>
                          )}
-                         {/* Botão Editar (Ainda sem link) */}
-                         <Link href={`/dashboard/tickets/${ticket.id}/edit`} className="rounded-md border p-2 hover:bg-gray-100">
+                         {/* Botão Editar */}
+                         <Link href={`/dashboard/tickets/${ticket.id}/edit`} className="rounded-md border p-2 hover:bg-gray-100 text-gray-600">
                             Editar
                          </Link>
                       </div>

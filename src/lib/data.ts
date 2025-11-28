@@ -45,3 +45,38 @@ export async function fetchTicketById(id: string) {
     throw new Error('Failed to fetch ticket.');
   }
 }
+
+export async function fetchCardData() {
+  noStore();
+  try {
+    // Executa todas as contagens em paralelo para ser rápido
+    const [ticketsCount, pendingThirdCount, pendingSynthexaCount, criticalCount] = await Promise.all([
+      // Total de Abertos
+      prisma.ticket.count({ where: { status: 'OPEN' } }),
+      
+      // Aguardando Terceiro (Abertos)
+      prisma.ticket.count({ where: { status: 'OPEN', responsibility: 'THIRD_PARTY' } }),
+      
+      // Aguardando Synthexa (Abertos)
+      prisma.ticket.count({ where: { status: 'OPEN', responsibility: 'SYNTHEXA' } }),
+      
+      // Críticos (Abertos e sem atualização há mais de 5 dias)
+      prisma.ticket.count({ 
+        where: { 
+          status: 'OPEN', 
+          updatedAt: { lte: new Date(new Date().setDate(new Date().getDate() - 5)) } 
+        } 
+      }),
+    ]);
+
+    return {
+      ticketsCount,
+      pendingThirdCount,
+      pendingSynthexaCount,
+      criticalCount,
+    };
+  } catch (error) {
+    console.error('Database Error:', error);
+    throw new Error('Failed to fetch card data.');
+  }
+}
