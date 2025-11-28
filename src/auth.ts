@@ -2,9 +2,9 @@ import NextAuth from 'next-auth';
 import { authConfig } from './auth.config';
 import Credentials from 'next-auth/providers/credentials';
 import { z } from 'zod'; // Validação
-import prisma from '@/lib/prisma';
+import prisma from './lib/prisma';
 import bcrypt from 'bcryptjs';
-import type { User } from '@/lib/definitions'; // Vamos criar essa tipagem já já
+import type { User } from './lib/definitions';
 
 // Função auxiliar para buscar usuário
 async function getUser(email: string): Promise<any> {
