@@ -2,17 +2,17 @@
 
 import { z } from 'zod';
 import prisma from './prisma'; // Caminho relativo
-import { CreateTicketSchema, CreateTicketState } from './definitions'; // Caminho relativo
+// Adicionado UpdateTicketSchema na importação abaixo
+import { CreateTicketSchema, CreateTicketState, UpdateTicketSchema } from './definitions'; 
 import { auth, signIn } from '../auth'; // Caminho relativo
 import { AuthError } from 'next-auth';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-// --- AQUI ESTÁ O SEGREDO ---
 // Importamos uma função que força o modo dinâmico
 import { unstable_noStore as noStore } from 'next/cache';
 
-// Função de Login (Já existia)
+// --- 1. LOGIN ---
 export async function authenticate(
   prevState: string | undefined,
   formData: FormData,
@@ -32,12 +32,10 @@ export async function authenticate(
   }
 }
 
-// Função de Criar Ticket (Com a correção)
+// --- 2. CRIAR TICKET ---
 export async function createTicket(prevState: CreateTicketState, formData: FormData) {
-  // 1. Forçar comportamento dinâmico para garantir acesso aos headers/cookies
   noStore();
 
-  // 2. Validar os campos com Zod
   const validatedFields = CreateTicketSchema.safeParse({
     title: formData.get('title'),
     description: formData.get('description'),
@@ -56,8 +54,6 @@ export async function createTicket(prevState: CreateTicketState, formData: FormD
     };
   }
 
-  // 3. Pegar o usuário logado com segurança
-  // Agora o auth() deve funcionar pois o noStore() preparou o terreno
   const session = await auth();
   
   if (!session?.user?.email) {
@@ -72,10 +68,8 @@ export async function createTicket(prevState: CreateTicketState, formData: FormD
     return { message: 'Erro crítico: Usuário não encontrado no banco.' };
   }
 
-  // 4. Preparar os dados
   const { title, description, externalId, internalId, origin, systemName, externalUrl, responsibility } = validatedFields.data;
 
-  // 5. Transação no Banco
   try {
     await prisma.$transaction(async (tx) => {
       const ticket = await tx.ticket.create({
@@ -105,6 +99,88 @@ export async function createTicket(prevState: CreateTicketState, formData: FormD
   } catch (error) {
     console.error('Erro ao criar ticket:', error);
     return { message: 'Erro de banco de dados ao criar ticket.' };
+  }
+
+  revalidatePath('/dashboard/tickets');
+  revalidatePath('/dashboard');
+  redirect('/dashboard/tickets');
+}
+
+// --- 3. ATUALIZAR TICKET (NOVO) ---
+export async function updateTicket(
+  id: string, 
+  prevState: any, 
+  formData: FormData
+) {
+  noStore();
+  
+  const session = await auth();
+  if (!session?.user?.email) return { message: 'Não autenticado' };
+
+  const user = await prisma.user.findUnique({ where: { email: session.user.email } });
+  if (!user) return { message: 'Usuário inválido' };
+
+  // Validação dos dados de atualização
+  const validatedFields = UpdateTicketSchema.safeParse({
+    status: formData.get('status'),
+    responsibility: formData.get('responsibility'),
+    description: formData.get('description'),
+    externalUrl: formData.get('externalUrl'),
+  });
+
+  if (!validatedFields.success) {
+    return {
+      errors: validatedFields.error.flatten().fieldErrors,
+      message: 'Dados inválidos.',
+    };
+  }
+
+  const { status, responsibility, description, externalUrl } = validatedFields.data;
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      // A. Buscar ticket atual para comparação (Log Inteligente)
+      const oldTicket = await tx.ticket.findUnique({ where: { id } });
+      if (!oldTicket) throw new Error('Ticket not found');
+
+      // B. Atualizar Ticket
+      await tx.ticket.update({
+        where: { id },
+        data: {
+          status,
+          responsibility,
+          description: description || oldTicket.description,
+          externalUrl: externalUrl || oldTicket.externalUrl,
+        },
+      });
+
+      // C. Gerar Log de Mudanças
+      let logDetails = '';
+      
+      if (oldTicket.status !== status) {
+        logDetails += `Alterou status para ${status === 'OPEN' ? 'Aberto' : 'Fechado'}. `;
+      }
+      
+      if (oldTicket.responsibility !== responsibility) {
+        logDetails += `Passou bastão para ${responsibility === 'SYNTHEXA' ? 'Nós (Synthexa)' : 'Terceiro'}. `;
+      }
+
+      if (logDetails === '') {
+        logDetails = 'Atualizou detalhes do ticket.';
+      }
+
+      await tx.auditLog.create({
+        data: {
+          action: 'UPDATE',
+          details: logDetails,
+          userId: user.id,
+          ticketId: id,
+        },
+      });
+    });
+  } catch (error) {
+    console.error('Erro ao atualizar:', error);
+    return { message: 'Erro ao atualizar ticket.' };
   }
 
   revalidatePath('/dashboard/tickets');

@@ -1,6 +1,14 @@
 import { z } from 'zod';
 
-// Schema para criar um ticket
+// Tipagem do Usuário (Usado no Auth)
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+};
+
+// --- CRIAÇÃO ---
 export const CreateTicketSchema = z.object({
   title: z.string().min(5, 'O título deve ter pelo menos 5 caracteres'),
   description: z.string().optional(),
@@ -23,3 +31,11 @@ export type CreateTicketState = {
   };
   message?: string | null;
 };
+
+// --- ATUALIZAÇÃO (O que estava faltando) ---
+export const UpdateTicketSchema = z.object({
+  status: z.enum(['OPEN', 'CLOSED', 'ARCHIVED']),
+  responsibility: z.enum(['SYNTHEXA', 'THIRD_PARTY']),
+  description: z.string().optional(),
+  externalUrl: z.string().url().optional().or(z.literal('')),
+});
